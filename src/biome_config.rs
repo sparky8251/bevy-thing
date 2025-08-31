@@ -42,8 +42,8 @@ impl Default for BiomeThresholds {
         Self {
             snow: 0.75,
             rock: 0.5,
-            grass: 0.1,
-            sand: -0.2,
+            grass: 0.0,
+            sand: -0.1,
         }
     }
 }
