@@ -10,13 +10,23 @@ use crate::{biome_config::BiomeConfig, noise::NoiseConfig, utils::generate_image
 #[derive(Component)]
 struct Map;
 
+#[derive(Event, Debug)]
+struct RegenerateMapEvent;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .init_resource::<BiomeConfig>()
         .init_resource::<NoiseConfig>()
+        .add_event::<RegenerateMapEvent>()
         .add_systems(Startup, setup)
-        .add_systems(Update, (handle_input, regenerate_map).chain())
+        .add_systems(
+            Update,
+            (
+                handle_input,
+                regenerate_map.run_if(on_event::<RegenerateMapEvent>).chain(),
+            ),
+        )
         .run();
 }
 
@@ -33,19 +43,25 @@ fn setup(
 
     commands.spawn((
         Sprite {
-            image: dbg!(image_handle),
+            image: image_handle,
             ..default()
         },
         Map,
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
-
 }
 
-fn handle_input(keys: Res<ButtonInput<KeyCode>>, mut config: ResMut<NoiseConfig>) {
+fn handle_input(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut config: ResMut<NoiseConfig>,
+    mut event_writer: EventWriter<RegenerateMapEvent>,
+) {
+    let mut regenerate_map = false;
+
     if keys.just_pressed(KeyCode::KeyR) {
         config.seed = rand::rng().random();
         info!("New seed: {:}", config.seed);
+        regenerate_map = true;
     }
 
     if keys.just_pressed(KeyCode::KeyF) {
@@ -55,6 +71,7 @@ fn handle_input(keys: Res<ButtonInput<KeyCode>>, mut config: ResMut<NoiseConfig>
             config.frequency += 0.001;
         }
         info!("New frequency: {:.3}", config.frequency);
+        regenerate_map = true;
     }
 
     if keys.just_pressed(KeyCode::KeyO) {
@@ -64,6 +81,11 @@ fn handle_input(keys: Res<ButtonInput<KeyCode>>, mut config: ResMut<NoiseConfig>
             config.octaves = (config.octaves + 1).min(10);
         }
         info!("New octaves: {}", config.octaves);
+        regenerate_map = true;
+    }
+
+    if regenerate_map {
+        event_writer.write(RegenerateMapEvent);
     }
 }
 
@@ -73,15 +95,8 @@ fn regenerate_map(
     mut images: ResMut<Assets<Image>>,
     q_map: Query<&Sprite, With<Map>>,
 ) {
-    if !noise_config.is_changed() {
-        return;
-    }
-    info!("Noise config changed, regenerating map...");
-
     if let Ok(sprite) = q_map.single() {
-        info!("Sprite found");
-        if let Some(image) = images.get_mut(&dbg!(&sprite.image).clone()) {
-            info!("Regenerating image...");
+        if let Some(image) = images.get_mut(&sprite.image) {
             let new_image = generate_image(
                 image.texture_descriptor.size.width,
                 image.texture_descriptor.size.height,
@@ -89,7 +104,6 @@ fn regenerate_map(
                 &noise_config,
             );
             *image = new_image;
-            info!("Map regenerated");
         }
     }
 }

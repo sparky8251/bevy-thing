@@ -38,7 +38,7 @@ pub(crate) fn generate_image(width: u32, height: u32, biome_config: &BiomeConfig
         TextureDimension::D2,
         pixels,
         TextureFormat::Rgba8Unorm,
-        RenderAssetUsages::RENDER_WORLD,
+        RenderAssetUsages::all(),
     )
 }
 
