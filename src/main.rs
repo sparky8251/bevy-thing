@@ -1,40 +1,29 @@
+mod biome_config;
+mod utils;
+
 use bevy::prelude::*;
+
+use crate::{biome_config::BiomeConfig, utils::generate_image};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .init_resource::<BiomeConfig>()
         .add_systems(Startup, setup)
-        .add_systems(Update, sprite_movement)
         .run();
 }
 
-#[derive(Component)]
-enum Direction {
-    Left,
-    Right,
-}
-
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>, config: Res<BiomeConfig>) {
     commands.spawn(Camera2d);
 
+    let image = generate_image(1280, 720, &config);
+    let image_handle = images.add(image);
+
     commands.spawn((
-        Sprite::from_image(asset_server.load("branding/bevy_bird_dark.png")),
-        Transform::from_xyz(0., 0., 0.),
-        Direction::Right,
+        Sprite {
+            image: image_handle,
+            ..default()
+        },
+        Transform::from_xyz(0.0, 0.0, 0.0),
     ));
-}
-
-fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
-    for (mut sprite, mut transform) in &mut sprite_position {
-        match *sprite {
-            Direction::Right => transform.translation.x += 150. * time.delta_secs(),
-            Direction::Left => transform.translation.x -= 150. * time.delta_secs(),
-        }
-
-        if transform.translation.x > 200. {
-            *sprite = Direction::Left;
-        } else if transform.translation.x < -200. {
-            *sprite = Direction::Right;
-        }
-    }
 }
